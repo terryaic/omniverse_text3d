@@ -1,0 +1,9 @@
+[package]
+version = "0.1.0"
+title = "Make 3D Text"
+
+[dependencies]
+"omni.kit.mainwindow" = {}
+
+[[python.module]]
+name = "cn.appincloud.text3d"
