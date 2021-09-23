@@ -97,7 +97,12 @@ class Extension(omni.ext.IExt):
                     if attributeValue is not None:
                         newAttribute = newObj.CreateAttribute(attribute.GetName(),attribute.GetTypeName(), False)
                         newAttribute.Set(attributeValue)
-                carb.log_info(f"properties:{obj.GetProperties()}")
+                        #carb.log_info(f"help:{help(attribute.GetVariability())}")'faceVarying'
+                #carb.log_info(f"properties:{obj.GetProperties()}")
+                mesh = UsdGeom.Mesh(obj)
+                carb.log_info(f"allv:{mesh.GetNormalsInterpolation()}")
+                newMesh = UsdGeom.Mesh(newObj)
+                newMesh.SetNormalsInterpolation(mesh.GetNormalsInterpolation())
 
     async def test(self):
         import subprocess
