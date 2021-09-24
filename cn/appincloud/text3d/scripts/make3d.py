@@ -35,18 +35,18 @@ removeObjects( scn )
 DEFAULT_FONT = "/usr/share/fonts/truetype/freefont/FreeSerif.ttf"
 #fnt = bpy.data.fonts.load(DEFAULT_FONT)
 
-def text3d(text, fntFamily, fntSize, extrude, asSingleMesh=True):
+def text3d(text, fntFamily, fntSize, extrude, bevelDepth, asSingleMesh=True):
 	fnt = bpy.data.fonts.load(fntFamily)
 	if asSingleMesh:
-		makeobj(text, fnt, 'Text1', 0, fntSize, extrude)
+		makeobj(text, fnt, 'Text1', 0, fntSize, extrude, bevelDepth)
 	else:
 		i = 0
 		for t in text:
 			name = "Text%d" % i
-			makeobj(t, fnt, name, i, fntSize, extrude)
+			makeobj(t, fnt, name, i, fntSize, extrude, bevelDepth)
 			i+=1
 
-def makeobj(text, fnt, name = "Text1", offset = 0, size = 3, extrude = 0.2):
+def makeobj(text, fnt, name = "Text1", offset = 0, size = 3, extrude = 0.2, bevelDepth = 0):
 	# Create and name TextCurve object
 	bpy.ops.object.text_add(
 	location=(offset,0,0),
@@ -59,6 +59,7 @@ def makeobj(text, fnt, name = "Text1", offset = 0, size = 3, extrude = 0.2):
 	ob.data.size = size
 	# Inherited Curve attributes
 	ob.data.extrude = extrude
+	ob.data.bevel_depth = bevelDepth
 
 	bpy.ops.object.convert(target='MESH', keep_original=False)
 
@@ -71,9 +72,10 @@ text = sys.argv[n]
 fontFamily = sys.argv[n+1]
 fontSize = int(sys.argv[n+2])
 extrude = float(sys.argv[n+3])
-asSingleMesh = str2bool(sys.argv[n+4])
-filepath = sys.argv[n+5]
-text3d(text, fontFamily, fontSize, extrude, asSingleMesh)
+bevelDepth = float(sys.argv[n+4])
+asSingleMesh = str2bool(sys.argv[n+5])
+filepath = sys.argv[n+6]
+text3d(text, fontFamily, fontSize, extrude, bevelDepth, asSingleMesh)
 #text3d(config.text, config.fontFamily, config.fontSize, config.extrude, config.asSingleMesh)
 #bpy.ops.export_scene.fbx(filepath="text.fbx")
 bpy.ops.wm.usd_export(filepath=filepath)
