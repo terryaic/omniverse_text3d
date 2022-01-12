@@ -92,29 +92,36 @@ class Extension(omni.ext.IExt):
         pass
 
     def copyMesh(self, obj, newObj):
-                attributes = obj.GetAttributes()
-                #carb.log_info(f"attributes:{attributes}")
-                for attribute in attributes:
-                    attributeValue = attribute.Get()
-                    if attributeValue is not None:
-                        newAttribute = newObj.CreateAttribute(attribute.GetName(),attribute.GetTypeName(), False)
-                        newAttribute.Set(attributeValue)
-                mesh = UsdGeom.Mesh(obj)
-                newMesh = UsdGeom.Mesh(newObj)
-                newMesh.SetNormalsInterpolation(mesh.GetNormalsInterpolation())
+        attributes = obj.GetAttributes()
+        #carb.log_info(f"attributes:{attributes}")
+        for attribute in attributes:
+            attributeValue = attribute.Get()
+            if attributeValue is not None:
+                newAttribute = newObj.CreateAttribute(attribute.GetName(),attribute.GetTypeName(), False)
+                newAttribute.Set(attributeValue)
+        mesh = UsdGeom.Mesh(obj)
+        newMesh = UsdGeom.Mesh(newObj)
+        newMesh.SetNormalsInterpolation(mesh.GetNormalsInterpolation())
 
     async def generate_text(self):
         import subprocess
-        cmd = "%s/blender -b -P %s/make3d.py %s %s %d %f %f %s %s" % (self.blender_path, PY_PATH, self.text, PY_PATH + "/fonts/" + self.fontfamily, self.fontsize, self.extrude, self.bevelDepth, self.singleMesh, self.filepath)
-        carb.log_info(f"cmd:{cmd}")
-        p = subprocess.Popen(cmd, shell=False)
-        p.wait()
+        try:
+            cmd = "%s/blender -b -P %s/make3d.py %s %s %d %f %f %s %s" % (self.blender_path, PY_PATH, self.text, PY_PATH + "/fonts/" + self.fontfamily, self.fontsize, self.extrude, self.bevelDepth, self.singleMesh, self.filepath)
+            carb.log_info(f"cmd:{cmd}")
+            #p = subprocess.Popen(cmd, shell=False)
+            args = [os.path.join(self.blender_path, "blender"), "-b", "-P", os.path.join(PY_PATH, "make3d.py"), self.text, \
+            os.path.join(PY_PATH, "fonts", self.fontfamily), str(self.fontsize), str(self.extrude), str(self.bevelDepth), str(self.singleMesh), self.filepath]
+            p = subprocess.Popen(args, shell=False)
+            p.wait()
+        except Exception as e:
+            print(e)
         stage1 = omni.usd.get_context().get_stage()
         selected_paths = omni.usd.get_context().get_selection().get_selected_prim_paths()
+        defaultPrimPath = str(stage1.GetDefaultPrim().GetPath())
         if len(selected_paths) > 0:
             path = selected_paths[0]
         else:
-            path = "/World"
+            path = defaultPrimPath
         stage = Usd.Stage.Open(self.filepath)
         selecteds = stage.Traverse()
         carb.log_info(f"{selecteds}")

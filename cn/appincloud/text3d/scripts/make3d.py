@@ -1,4 +1,4 @@
-import argparse
+#import argparse
 import bpy
 import math
 from math import pi
@@ -21,6 +21,7 @@ def parse_args():
     return parser.parse_args()
 
 #config=parse_args()
+print("runing make3d")
 print(sys.argv)
 
 def removeObjects( scn ):
