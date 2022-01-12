@@ -10,7 +10,6 @@ import omni.ext
 import omni.ui
 import omni.kit.ui_windowmanager
 import omni.appwindow
-import numpy as np
 
 from pxr import UsdGeom, UsdShade, Vt, Gf, Sdf, Usd
 
