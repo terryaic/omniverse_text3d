@@ -1,51 +1,33 @@
 import os
-import math
 import asyncio
-
 import carb
 import carb.settings
-
+from omni.kit.widget.settings import create_setting_widget, SettingType
 import omni.kit.app
 import omni.ext
 import omni.ui
-import omni.kit.ui_windowmanager
-import omni.appwindow
-
 from pxr import UsdGeom, UsdShade, Vt, Gf, Sdf, Usd
-
-try:
-    import omni.kit.renderer
-    import omni.kit.imgui_renderer
-
-    standalone_renderer_present = True
-except:
-    standalone_renderer_present = False
-
 
 WINDOW_NAME = "Make 3D Text"
 EXTENSION_NAME = "Make 3D Text"
 PY_PATH = os.path.dirname(os.path.realpath(__file__))
-BLENDER_PATH = "C:/Users/terry/AppData/Local/ov/pkg/blender-3.0.0-usd.100.1.3/Release"
-
+BLENDER_PATH = "cn.appincloud.text3d.blender_path"
 
 class Extension(omni.ext.IExt):
     def __init__(self):
-        self.loads()
         self.num = 0
         self.enabled = True
-        self._window = omni.ui.Window(EXTENSION_NAME, width=600, height=800, menu_path=f"{EXTENSION_NAME}")
-        self._scroll_frame = omni.ui.ScrollingFrame()
-        self._ui_rebuild()
-        self._window.frame.set_build_fn(self._ui_rebuild)
-
-    def loads(self):
-        self.blender_path = BLENDER_PATH
         self.filepath = "tmptext.usd"
         self.extrude = 1.5
         self.fontsize = 20
         self.bevelDepth = 0
         self.text = "hello"
         self.singleMesh = True
+        self._settings = carb.settings.get_settings()
+        self._settings.set_default_string(BLENDER_PATH, "")
+        self.load_fonts()
+
+    def load_fonts(self):
         #self.fontfamily = "SourceHanSansCN.otf"
         #self.fonts = ["SourceHanSansCN.otf", "SourceHanSerifCN.otf"]
         self.fonts = []
@@ -55,45 +37,17 @@ class Extension(omni.ext.IExt):
                 self.fonts.append(file)
         self.fontfamily = self.fonts[0]
 
-    def get_name(self):
-        return EXTENSION_NAME
-
     def on_startup(self, ext_id):
-        stage = omni.usd.get_context().get_stage()
-        self._context = omni.usd.get_context()
-        self.event_sub = self._context.get_stage_event_stream().create_subscription_to_pop(self._on_event)
-        self._timeline_iface = omni.timeline.get_timeline_interface()
-        self._timeline_events = self._timeline_iface.get_timeline_event_stream().create_subscription_to_pop(
-            self._on_timeline_event
-        )
-        self.update_events = (
-            omni.kit.app.get_app().get_update_event_stream().create_subscription_to_pop(self._on_update)
-        )
+        self._window = omni.ui.Window(EXTENSION_NAME, width=600, height=800, menu_path=f"{EXTENSION_NAME}")
+        self._window.deferred_dock_in("Property")
+        self._window.frame.set_build_fn(self._ui_rebuild)
+        self._ui_rebuild()
 
     def on_shutdown(self):
         pass
 
-    def _on_event(self, e):
-        if e.type == int(omni.usd.StageEventType.SELECTION_CHANGED):
-            pass
-        elif e.type == int(omni.usd.StageEventType.OPENED) or e.type == int(omni.usd.StageEventType.ASSETS_LOADED):
-            pass
-
-    def _on_timeline_event(self, e):
-        stage = omni.usd.get_context().get_stage()
-        if e.type == int(omni.timeline.TimelineEventType.PLAY):
-            pass
-        elif e.type == int(omni.timeline.TimelineEventType.STOP):
-            pass
-        elif e.type == int(omni.timeline.TimelineEventType.PAUSE):
-            pass
-
-    def _on_update(self, dt):
-        pass
-
     def copyMesh(self, obj, newObj):
         attributes = obj.GetAttributes()
-        #carb.log_info(f"attributes:{attributes}")
         for attribute in attributes:
             attributeValue = attribute.Get()
             if attributeValue is not None:
@@ -104,12 +58,13 @@ class Extension(omni.ext.IExt):
         newMesh.SetNormalsInterpolation(mesh.GetNormalsInterpolation())
 
     async def generate_text(self):
+        blender_path = self.getBlenderPath()
         import subprocess
         try:
-            cmd = "%s/blender -b -P %s/make3d.py %s %s %d %f %f %s %s" % (self.blender_path, PY_PATH, self.text, PY_PATH + "/fonts/" + self.fontfamily, self.fontsize, self.extrude, self.bevelDepth, self.singleMesh, self.filepath)
+            cmd = "%s -b -P %s/make3d.py %s %s %d %f %f %s %s" % (blender_path, PY_PATH, self.text, PY_PATH + "/fonts/" + self.fontfamily, self.fontsize, self.extrude, self.bevelDepth, self.singleMesh, self.filepath)
             carb.log_info(f"cmd:{cmd}")
             #p = subprocess.Popen(cmd, shell=False)
-            args = [os.path.join(self.blender_path, "blender"), "-b", "-P", os.path.join(PY_PATH, "make3d.py"), self.text, \
+            args = [blender_path, "-b", "-P", os.path.join(PY_PATH, "make3d.py"), self.text, \
             os.path.join(PY_PATH, "fonts", self.fontfamily), str(self.fontsize), str(self.extrude), str(self.bevelDepth), str(self.singleMesh), self.filepath]
             p = subprocess.Popen(args, shell=False)
             p.wait()
@@ -122,20 +77,16 @@ class Extension(omni.ext.IExt):
             path = selected_paths[0]
         else:
             path = defaultPrimPath
-        stage = Usd.Stage.Open(self.filepath)
-        selecteds = stage.Traverse()
+        stage2 = Usd.Stage.Open(self.filepath)
+        selecteds = stage2.Traverse()
         carb.log_info(f"{selecteds}")
         for obj in selecteds:
             if obj.GetTypeName() == 'Xform':
-                #carb.log_info(f"ignore xform:{obj}")
                 pass
             elif obj.GetTypeName() == "Mesh":
                 newObj = stage1.DefinePrim(f"{path}/Text_{self.num}", "Mesh")
                 self.copyMesh(obj, newObj)
                 self.num += 1
-            else:
-                #carb.log_info(f"ignore other:{obj}")
-                pass
 
     def fontsize_changed(self, text_model):
         self.fontsize = text_model.get_value_as_int()
@@ -152,10 +103,6 @@ class Extension(omni.ext.IExt):
     def text_changed(self, text_model):
         self.text = text_model.get_value_as_string()
         carb.log_info(f"text changed:{self.text}")
-
-    def blenderpath_changed(self, text_model):
-        self.blender_path = text_model.get_value_as_string()
-        carb.log_info(f"text2 changed:{self.blender_path}")
 
     def combo_changed(self, combo_model, item):
             all_options = [
@@ -174,7 +121,7 @@ class Extension(omni.ext.IExt):
         self._scroll_frame = omni.ui.ScrollingFrame()
         with self._window.frame:
             with self._scroll_frame:
-                with omni.ui.VStack(spacing=5):
+                with omni.ui.VStack(spacing=2):
                     # intro
                     with omni.ui.CollapsableFrame(title="Description", height=10):
                         with omni.ui.VStack(style={"margin": 5}):
@@ -182,48 +129,69 @@ class Extension(omni.ext.IExt):
                                 "This extension will generate 3d text with blender, please change the following path to your blender installed path",
                                 word_wrap=True,
                             )
-
-                    with omni.ui.HStack():
-                        omni.ui.Label("blender installed path", height=10)
-                        blender_path = omni.ui.StringField(height=10,  style={"padding": 5, "font_size": 20}).model
-                        blender_path.add_value_changed_fn(self.blenderpath_changed)
-                        blender_path.set_value(self.blender_path)
-
-                    with omni.ui.HStack():
-                        omni.ui.Label("text", height=10)
+                    with omni.ui.HStack(height=20):
+                        omni.ui.Label("blender installed path", word_wrap=True, width=omni.ui.Percent(35))
+                        create_setting_widget(BLENDER_PATH, SettingType.STRING, width=omni.ui.Percent(55))
+                        blender_button = omni.ui.Button("...", height=5, style={"padding": 12, "font_size": 20})
+                        blender_button.set_clicked_fn(self._on_file_select_click)
+                    with omni.ui.HStack(height=20):
+                        omni.ui.Label("text", word_wrap=True, width=omni.ui.Percent(35))
                         text = omni.ui.StringField(height=10,  style={"padding": 5, "font_size": 20}).model
                         text.add_value_changed_fn(self.text_changed)
                         text.set_value(self.text)
-
-                    with omni.ui.HStack():
-                        omni.ui.Label("font", height=10)
+                    with omni.ui.HStack(height=20):
+                        omni.ui.Label("font", word_wrap=True, width=omni.ui.Percent(35))
                         fontFamily = omni.ui.ComboBox(0, *self.fonts, height=10, name="font family").model
                         fontFamily.add_item_changed_fn(self.combo_changed)
-
-                    with omni.ui.HStack():
-                        omni.ui.Label("font-size", height=10)
+                    with omni.ui.HStack(height=20):
+                        omni.ui.Label("font-size", word_wrap=True, width=omni.ui.Percent(35))
                         fontsize = omni.ui.IntField(height=10, style={"padding": 5, "font_size": 20}).model
                         fontsize.add_value_changed_fn(self.fontsize_changed)
                         fontsize.set_value(self.fontsize)
-
-                    with omni.ui.HStack():
-                        omni.ui.Label("extrude", height=10)
+                    with omni.ui.HStack(height=20):
+                        omni.ui.Label("extrude", word_wrap=True, width=omni.ui.Percent(35))
                         extrude = omni.ui.FloatField(height=10,  style={"padding": 5, "font_size": 20}).model
                         extrude.add_value_changed_fn(self.extrude_changed)
                         extrude.set_value(self.extrude)
-
-                    with omni.ui.HStack():
-                        omni.ui.Label("bevel depth", height=10)
+                    with omni.ui.HStack(height=20):
+                        omni.ui.Label("bevel depth", word_wrap=True, width=omni.ui.Percent(35))
                         bevel = omni.ui.FloatField(height=10,  style={"padding": 5, "font_size": 20}).model
                         bevel.add_value_changed_fn(self.beveldepth_changed)
                         bevel.set_value(self.bevelDepth)
-
-                    with omni.ui.HStack():
-                        omni.ui.Label("as a single mesh", height=10)
+                    with omni.ui.HStack(height=20):
+                        omni.ui.Label("as a single mesh", word_wrap=True, width=omni.ui.Percent(35))
                         singleMesh = omni.ui.CheckBox(height=10,  style={"padding": 5, "font_size": 20}).model
                         singleMesh.add_value_changed_fn(self.singleMesh_changed)
                         singleMesh.set_value(self.singleMesh)
-                    
-                    with omni.ui.HStack():
+                    with omni.ui.HStack(height=20):
                         button = omni.ui.Button("Generate 3D Text", height=5, style={"padding": 12, "font_size": 20})
                         button.set_clicked_fn(lambda: asyncio.ensure_future(self.generate_text()))
+
+    def getBlenderPath(self):
+        s = self._settings.get(BLENDER_PATH)
+        return s
+
+    def _on_filepicker_cancel(self, *args):
+        self._filepicker.hide()
+        
+    def _on_filter_item(self, item):
+        return True
+
+    async def _on_selection(self, filename, dirname):
+        path = os.path.join(dirname,filename)
+        if os.path.isfile(path):
+            pass
+        else:
+            path = os.path.join(path, "blender")
+        self._settings.set(BLENDER_PATH, path)
+        self._filepicker.hide()
+        self._window.frame.rebuild()
+        
+    def _on_file_select_click(self):
+        self._filepicker = omni.kit.window.filepicker.FilePickerDialog(
+            f"{EXTENSION_NAME}/Select Blender installed path",
+            click_apply_handler=lambda f, d: asyncio.ensure_future(self._on_selection(f, d)),
+            click_cancel_handler= self._on_filepicker_cancel,
+            item_filter_options= ["*"],
+            item_filter_fn=self._on_filter_item,
+        )
