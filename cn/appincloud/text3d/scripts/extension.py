@@ -46,19 +46,8 @@ class Extension(omni.ext.IExt):
     def on_shutdown(self):
         pass
 
-    def copyMesh(self, obj, newObj):
-        attributes = obj.GetAttributes()
-        for attribute in attributes:
-            attributeValue = attribute.Get()
-            if attributeValue is not None:
-                newAttribute = newObj.CreateAttribute(attribute.GetName(),attribute.GetTypeName(), False)
-                newAttribute.Set(attributeValue)
-        mesh = UsdGeom.Mesh(obj)
-        newMesh = UsdGeom.Mesh(newObj)
-        newMesh.SetNormalsInterpolation(mesh.GetNormalsInterpolation())
-
     async def generate_text(self):
-        blender_path = self.getBlenderPath()
+        blender_path = self.get_blender_path()
         import subprocess
         try:
             cmd = "%s -b -P %s/make3d.py %s %s %d %f %f %s %s" % (blender_path, PY_PATH, self.text, PY_PATH + "/fonts/" + self.fontfamily, self.fontsize, self.extrude, self.bevelDepth, self.singleMesh, self.filepath)
@@ -85,8 +74,19 @@ class Extension(omni.ext.IExt):
                 pass
             elif obj.GetTypeName() == "Mesh":
                 newObj = stage1.DefinePrim(f"{path}/Text_{self.num}", "Mesh")
-                self.copyMesh(obj, newObj)
+                self.copy_mesh(obj, newObj)
                 self.num += 1
+
+    def copy_mesh(self, obj, newObj):
+        attributes = obj.GetAttributes()
+        for attribute in attributes:
+            attributeValue = attribute.Get()
+            if attributeValue is not None:
+                newAttribute = newObj.CreateAttribute(attribute.GetName(),attribute.GetTypeName(), False)
+                newAttribute.Set(attributeValue)
+        mesh = UsdGeom.Mesh(obj)
+        newMesh = UsdGeom.Mesh(newObj)
+        newMesh.SetNormalsInterpolation(mesh.GetNormalsInterpolation())
 
     def fontsize_changed(self, text_model):
         self.fontsize = text_model.get_value_as_int()
@@ -167,7 +167,7 @@ class Extension(omni.ext.IExt):
                         button = omni.ui.Button("Generate 3D Text", height=5, style={"padding": 12, "font_size": 20})
                         button.set_clicked_fn(lambda: asyncio.ensure_future(self.generate_text()))
 
-    def getBlenderPath(self):
+    def get_blender_path(self):
         s = self._settings.get(BLENDER_PATH)
         return s
 
